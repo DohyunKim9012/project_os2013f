@@ -22,13 +22,15 @@
 
 /* List of processes in THREAD_READY state, that is, processes
    that are ready to run but not actually running. */
+#ifndef WFQ
 static struct list ready_list;
+#endif
 
 /* List of all processes.  Processes are added to this list
    when they are first scheduled and removed when they exit. */
 static struct list all_list;
 
-/* List of all wait processes. Processes are added to this list
+/*  of all wait processes. Processes are added to this list
    when they get into sleep. */
 static struct list wait_list;
 
@@ -94,9 +96,16 @@ thread_init (void)
   ASSERT (intr_get_level () == INTR_OFF);
 
   lock_init (&tid_lock);
+#ifndef WFQ
   list_init (&ready_list);
+#endif
   list_init (&wait_list);
   list_init (&all_list);
+
+  // Initializes Scheduler
+#ifdef WFQ
+  init_sched();
+#endif
 
   /* Set up a thread structure for the running thread. */
   initial_thread = running_thread ();
@@ -253,7 +262,11 @@ thread_unblock (struct thread *t)
 
   old_level = intr_disable ();
   ASSERT (t->status == THREAD_BLOCKED);
+#ifdef WFQ
+  sched_insert (&(t->se));
+#else
   list_push_back (&ready_list, &t->elem);
+#endif
   t->status = THREAD_READY;
   intr_set_level (old_level);
 }
@@ -384,8 +397,17 @@ thread_yield (void)
   ASSERT (!intr_context ());
 
   old_level = intr_disable ();
-  if (cur != idle_thread) 
+
+  if (cur != idle_thread)
+  {
+    sched_update(&(cur->se), thread_ticks);
+
+#ifdef WFQ
+    sched_insert(&cur->se);
+#else
     list_push_back (&ready_list, &cur->elem);
+#endif
+  }
   cur->status = THREAD_READY;
   schedule ();
   intr_set_level (old_level);
@@ -412,14 +434,14 @@ thread_foreach (thread_action_func *func, void *aux)
 void
 thread_set_priority (int new_priority) 
 {
-  thread_current ()->priority = new_priority;
+  thread_current ()->se.priority = new_priority;
 }
 
 /* Returns the current thread's priority. */
 int
 thread_get_priority (void) 
 {
-  return thread_current ()->priority;
+  return thread_current ()->se.priority;
 }
 
 /* Sets the current thread's nice value to NICE. */
@@ -536,11 +558,11 @@ init_thread (struct thread *t, const char *name, int priority)
   t->status = THREAD_BLOCKED;
   strlcpy (t->name, name, sizeof t->name);
   t->stack = (uint8_t *) t + PGSIZE;
-  t->priority = priority;
   t->magic = THREAD_MAGIC;
+#ifdef WFQ
+  init_sched_entity(&(t->se), priority);
+#endif
   list_push_back (&all_list, &t->allelem);
-
-  t->se.wake_up_tick = 0;
 }
 
 /* Allocates a SIZE-byte frame at the top of thread T's stack and
@@ -564,10 +586,19 @@ alloc_frame (struct thread *t, size_t size)
 static struct thread *
 next_thread_to_run (void) 
 {
+#ifdef WFQ
+  struct sched_entity *next = sched_pick_next();
+
+  if (next == NULL)
+    return idle_thread;
+  else
+    return container_of (next, struct thread, se);
+#else
   if (list_empty (&ready_list))
     return idle_thread;
   else
     return list_entry (list_pop_front (&ready_list), struct thread, elem);
+#endif
 }
 
 /* Completes a thread switch by activating the new thread's page
@@ -609,6 +640,7 @@ schedule_tail (struct thread *prev)
      pull out the rug under itself.  (We dont free
      initial_thread because its memory was not obtained via
      palloc().) */
+
   if (prev != NULL && prev->status == THREAD_DYING && prev != initial_thread) 
     {
       ASSERT (prev != cur);

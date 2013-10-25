@@ -1,6 +1,7 @@
 #ifndef THREADS_THREAD_H
 #define THREADS_THREAD_H
 
+#include "threads/sched.h"
 #include <debug.h>
 #include <list.h>
 #include <stdint.h>
@@ -18,17 +19,6 @@ enum thread_status
    You can redefine this to whatever type you like */
 typedef int tid_t;
 #define TID_ERROR ((tid_t) -1)          /* Error value for tid_t. */
-
-/* Thread priorities. */
-#define PRI_MIN 0                       /* Lowest priority. */
-#define PRI_DEFAULT 31                  /* Default priority. */
-#define PRI_MAX 63                      /* Highest priority. */
-
-/* A schedule entity for scheduling */
-struct schedule_entity {
-	/* if this thread is sleeping, specify wake up time in units of ticks */
-	int64_t wake_up_tick;
-};
 
 /* A kernel thread or user process.
 
@@ -93,11 +83,11 @@ struct thread
     enum thread_status status;          /* Thread state. */
     char name[16];                      /* Name (for debugging purposes). */
     uint8_t *stack;                     /* Saved stack pointer. */
-    int priority;                       /* Priority. */
+//    int priority;                       /* Priority. */
     struct list_elem allelem;           /* List element for all threads list. */
 
-	/* For Scheduling */
-	struct schedule_entity se;
+	  /* For Scheduling */
+    struct sched_entity se;
 
     /* Shared between thread.c and synch.c. */
     struct list_elem elem;              /* List element. */
