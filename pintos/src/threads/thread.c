@@ -1,4 +1,5 @@
 #include "threads/thread.h"
+#include "threads/test.c"
 #include <debug.h>
 #include <stddef.h>
 #include <random.h>
@@ -60,6 +61,17 @@ static long long user_ticks;    /* # of timer ticks in user programs. */
 #define TIME_SLICE 4            /* # of timer ticks to give each thread. */
 static unsigned thread_ticks;   /* # of timer ticks since last yield. */
 
+/* Overhead Measurement */
+static struct overhead_measurement
+{
+  bool yielded;
+  int times;
+  uint64_t preschedule_stamp;
+} overhead_data;
+
+static void record_preschedule(void);
+static void record_postschedule(void);
+
 /* If false (default), use round-robin scheduler.
    If true, use multi-level feedback queue scheduler.
    Controlled by kernel command-line option "-o mlfqs". */
@@ -76,6 +88,7 @@ static void *alloc_frame (struct thread *, size_t size);
 static void schedule (void);
 void schedule_tail (struct thread *prev);
 static tid_t allocate_tid (void);
+
 
 /* Initializes the threading system by transforming the code
    that's currently running into a thread.  This can not work in
@@ -278,6 +291,13 @@ thread_name (void)
   return thread_current ()->name;
 }
 
+/* Returns runtime (For measurement) */
+long
+thread_runtime(void)
+{
+  return thread_current ()->se.sum_runtime;
+}
+
 /* Returns the running thread.
    This is running_thread() plus a couple of sanity checks.
    See the big comment at the top of thread.h for details. */
@@ -306,7 +326,7 @@ thread_tid (void)
 
 /* For wait queue's efficiency, insertion to wait queue is done by
   increading order on wake up tick */
-bool
+static bool
 wake_up_tick_cmp (const struct list_elem *elem_1, const struct list_elem *elem_2, void *aux UNUSED)
 {
   struct thread *thread_1 = list_entry(elem_1, struct thread, elem);
@@ -398,6 +418,8 @@ thread_yield (void)
 
   old_level = intr_disable ();
 
+  record_preschedule();
+
   if (cur != idle_thread)
   {
     sched_update(&(cur->se), thread_ticks);
@@ -410,6 +432,9 @@ thread_yield (void)
   }
   cur->status = THREAD_READY;
   schedule ();
+
+  record_postschedule();
+
   intr_set_level (old_level);
 }
 
@@ -668,6 +693,7 @@ schedule (void)
 
   if (cur != next)
     prev = switch_threads (cur, next);
+
   schedule_tail (prev); 
 }
 
@@ -684,7 +710,54 @@ allocate_tid (void)
 
   return tid;
 }
-
+
+/* For Overhead Measurment */
+void
+record_preschedule(void)
+{
+  overhead_data.yielded = true;
+  overhead_data.preschedule_stamp = rdtsc ();
+}
+
+void
+record_postschedule(void)
+{
+  if (overhead_data.yielded)
+    running_thread ()->se.overhead = rdtsc () - overhead_data.preschedule_stamp;
+  else
+    running_thread ()->se.overhead = 0;
+
+  overhead_data.yielded = false;
+}
+
+/* Returns overhead time (For measurement) */
+uint64_t
+thread_overhead(void)
+{
+  uint64_t overhead = thread_current ()->se.overhead;
+
+  if (overhead > 0)
+  {
+    thread_current ()->se.overhead = 0;
+    overhead_data.times++;
+  }
+
+  return overhead;
+}
+
+void
+init_overhead_measurement (void)
+{
+  overhead_data.yielded = false;
+  overhead_data.times = 0;
+}
+
+int
+overhead_measurement_times (void)
+{
+  return overhead_data.times;
+}
+
 /* Offset of 'stack' member within 'thread'.
    Used by switch.S, which can't figure it out on its own. */
 uint32_t thread_stack_ofs = offsetof (struct thread, stack);

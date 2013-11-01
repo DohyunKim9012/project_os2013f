@@ -121,6 +121,10 @@ void thread_unblock (struct thread *);
 struct thread *thread_current (void);
 tid_t thread_tid (void);
 const char *thread_name (void);
+uint64_t thread_overhead (void);
+void init_overhead_measurement (void);
+int overhead_measurement_times (void);
+long thread_runtime (void);
 
 void thread_sleep (int64_t);
 void thread_wake_up (int64_t);

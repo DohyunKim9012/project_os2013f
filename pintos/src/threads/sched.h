@@ -75,6 +75,9 @@ struct sched_entity {
    * first execution of the thread. */
   long sum_runtime;
 
+  /* For Overhead Measurement */
+  uint64_t overhead;
+
 #ifdef WFQ_RBTREE
   /* rb_node */
   struct rb_node sched_node;

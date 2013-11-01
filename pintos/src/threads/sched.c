@@ -12,6 +12,9 @@ init_sched_entity(struct sched_entity* se, int new_priority)
   se->sum_runtime = 0;
   se->wake_up_tick = 0;
   sched_set_priority(se, new_priority);
+
+  /* For measurement */
+  se->overhead = 0;
 }
 
 /* Sets priority.

@@ -39,6 +39,8 @@ static const struct test tests[] =
     {"mlfqs-nice-10", test_mlfqs_nice_10},
     {"mlfqs-block", test_mlfqs_block},
     {"rbtree", test_rbtree},
+    {"wfq-overhead", test_wfq_overhead},
+    {"wfq-weight", test_wfq_weight},
   };
 
 static const char *test_name;
