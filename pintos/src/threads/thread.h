@@ -2,6 +2,7 @@
 #define THREADS_THREAD_H
 
 #include "threads/sched.h"
+#include "threads/synch.h"
 #include <debug.h>
 #include <list.h>
 #include <stdint.h>
@@ -15,8 +16,22 @@ enum thread_status
     THREAD_DYING        /* About to be destroyed. */
   };
 
+#ifdef USERPROG
+enum process_status
+  {
+    TASK_RUNNING,       /* Running process. */
+    TASK_STOPPED,       /* Not running but stopped running */
+    TASK_ZOMBIE,        /* Waiting for parent process. */
+    TASK_READY,       
+    TASK_DYING          /* About to be destroyed. */
+  };
+#endif
+
 /* Thread identifier type.
    You can redefine this to whatever type you like */
+#ifdef USERPROG
+typedef int pid_t;
+#endif
 typedef int tid_t;
 #define TID_ERROR ((tid_t) -1)          /* Error value for tid_t. */
 
@@ -83,7 +98,6 @@ struct thread
     enum thread_status status;          /* Thread state. */
     char name[16];                      /* Name (for debugging purposes). */
     uint8_t *stack;                     /* Saved stack pointer. */
-//    int priority;                       /* Priority. */
     struct list_elem allelem;           /* List element for all threads list. */
 
 	  /* For Scheduling */
@@ -94,7 +108,18 @@ struct thread
 
 #ifdef USERPROG
     /* Owned by userprog/process.c. */
+    pid_t pid;                          /* Process id */
     uint32_t *pagedir;                  /* Page directory. */
+    struct list file_list;              /* List of opened files */
+    struct file* executing_file;        /* Currently executing file */
+
+    struct thread* parent;              /* Parent process */
+    enum process_status p_status;       /* Process status */
+    struct list child_list;             /* List of child processes */
+    struct list_elem child_elem;             /* List element for child process list */
+    int exit_status;                         /* Exit status of the process */
+    struct semaphore wait_sema;         /* Semaphore for chlid process waiting */
+    struct semaphore exit_sema;         /* Semaphore for process exit */
 #endif
 
     /* Owned by thread.c. */
@@ -138,5 +163,9 @@ int thread_get_nice (void);
 void thread_set_nice (int);
 int thread_get_recent_cpu (void);
 int thread_get_load_avg (void);
+
+#ifdef USERPROG
+void assign_to_init_thread (struct list*);
+#endif
 
 #endif /* threads/thread.h */

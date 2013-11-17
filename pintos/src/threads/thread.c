@@ -111,6 +111,9 @@ thread_init (void)
   initial_thread = running_thread ();
   init_thread (initial_thread, "main", PRI_DEFAULT);
   initial_thread->status = THREAD_RUNNING;
+#ifdef USERPROG
+  initial_thread->p_status = TASK_RUNNING;
+#endif
   initial_thread->tid = allocate_tid ();
 }
 
@@ -199,7 +202,12 @@ thread_create (const char *name, int priority,
 
   /* Initialize thread. */
   init_thread (t, name, priority);
+  
+  /* Initialize pid same as tid (one-to-one relationship). */
   tid = t->tid = allocate_tid ();
+#ifdef USERPROG
+  t->pid = tid;
+#endif
 
   /* Prepare thread for first run by initializing its stack.
      Do this atomically so intermediate values for the stack 
@@ -238,10 +246,15 @@ thread_create (const char *name, int priority,
 void
 thread_block (void) 
 {
+  struct thread* cur = thread_current ();
   ASSERT (!intr_context ());
   ASSERT (intr_get_level () == INTR_OFF);
 
-  thread_current ()->status = THREAD_BLOCKED;
+  cur->status = THREAD_BLOCKED;
+
+#ifdef USERPROG
+  cur->p_status = (cur->p_status == TASK_ZOMBIE) ? TASK_ZOMBIE : TASK_STOPPED;
+#endif
   schedule ();
 }
 
@@ -268,6 +281,9 @@ thread_unblock (struct thread *t)
   list_push_back (&ready_list, &t->elem);
 #endif
   t->status = THREAD_READY;
+#ifdef USERPROG
+  t->p_status = (t->p_status == TASK_ZOMBIE) ? TASK_ZOMBIE : TASK_STOPPED;
+#endif
   intr_set_level (old_level);
 }
 
@@ -370,6 +386,7 @@ void thread_wake_up (int64_t current_ticks)
 void
 thread_exit (void) 
 {
+  struct thread *cur = thread_current ();
   ASSERT (!intr_context ());
 
 #ifdef USERPROG
@@ -381,7 +398,8 @@ thread_exit (void)
      when it call schedule_tail(). */
   intr_disable ();
   list_remove (&thread_current()->allelem);
-  thread_current ()->status = THREAD_DYING;
+  cur->status = THREAD_DYING;
+
   schedule ();
   NOT_REACHED ();
 }
@@ -409,6 +427,9 @@ thread_yield (void)
 #endif
   }
   cur->status = THREAD_READY;
+#ifdef USERPROG
+  cur->p_status = (cur->p_status == TASK_ZOMBIE) ? TASK_ZOMBIE : TASK_STOPPED;
+#endif
   schedule ();
   intr_set_level (old_level);
 }
@@ -559,6 +580,29 @@ init_thread (struct thread *t, const char *name, int priority)
   strlcpy (t->name, name, sizeof t->name);
   t->stack = (uint8_t *) t + PGSIZE;
   t->magic = THREAD_MAGIC;
+
+#ifdef USERPROG
+  /* Process initialization */
+
+  /* Data structure initialization */
+  list_init(&t->file_list);     /* Initialize open file table */
+  list_init(&t->child_list);    /* Initialize child list */
+  sema_init(&t->wait_sema, 0);  /* Initialize semaphore */
+  sema_init(&t->exit_sema, 0);
+
+  /* Status initialization */
+  t->pid = t->tid;              /* Initialize pid same as tid
+                                   one-to-one relationship */
+  t->p_status = TASK_STOPPED;   /* Set the task status as running */
+  t->exit_status = -1;          /* Set the exit status as -1 */
+
+  struct thread *cur = (t == initial_thread) ? NULL : thread_current ();
+  /* If the new thread is not the initial thread, register t as a child of cur */
+  if (cur != NULL)
+    list_push_back (&cur->child_list, &t->child_elem);
+  t->parent = cur;              /* Set parent as current thread */
+#endif
+
 #ifdef WFQ
   init_sched_entity(&(t->se), priority);
 #endif
@@ -626,6 +670,9 @@ schedule_tail (struct thread *prev)
 
   /* Mark us as running. */
   cur->status = THREAD_RUNNING;
+#ifdef USERPROG
+  cur->p_status = (cur->p_status == TASK_ZOMBIE) ? TASK_ZOMBIE : TASK_RUNNING;
+#endif
 
   /* Start new time slice. */
   thread_ticks = 0;
@@ -684,6 +731,27 @@ allocate_tid (void)
 
   return tid;
 }
+
+#ifdef USERPROG
+void
+assign_to_init_thread (struct list *child_list)
+{
+  struct thread *t;
+  struct list_elem *e;
+
+  while (!list_empty (child_list))
+  {
+    // Add members of child_list to initial thread
+    e = list_pop_front (child_list);
+    list_push_front (&initial_thread->child_list, e);
+
+    // Assign the parent of every member of child_list to initial thread 
+    t = list_entry (e, struct thread, child_elem);
+    t->parent = initial_thread;
+  }
+}
+#endif
+
 
 /* Offset of 'stack' member within 'thread'.
    Used by switch.S, which can't figure it out on its own. */

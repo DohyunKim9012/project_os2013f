@@ -1,1 +1,5 @@
+!*.c
 pintos/src/threads/build
+pintos/src/userprog/build
+pintos/src/filesys/build
+pintos/src/examples
