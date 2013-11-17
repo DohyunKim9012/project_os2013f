@@ -25,12 +25,6 @@
 #define ARGUMENT_MAXNUMBER 32
 #define ARGUMENT_DELIMITER " "
 
-struct process_info
-{
-  struct semaphore sema;
-  char *file_name;
-};
-
 static thread_func start_process NO_RETURN;
 static bool load (const char *cmdline, void (**eip) (void), void **esp, char *arg); 
 

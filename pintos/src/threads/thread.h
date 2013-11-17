@@ -21,8 +21,7 @@ enum process_status
   {
     TASK_RUNNING,       /* Running process. */
     TASK_STOPPED,       /* Not running but stopped running */
-    TASK_ZOMBIE,        /* Waiting for parent process. */
-    TASK_READY,       
+    TASK_ZOMBIE,        /* Waiting for parent process. */ 
     TASK_DYING          /* About to be destroyed. */
   };
 #endif
