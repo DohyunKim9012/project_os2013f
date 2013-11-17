@@ -47,8 +47,8 @@ process_execute (const char *file_name)
 
   /* Copys the first argument for process name */
   int fn_size = strcspn (fn_copy, ARGUMENT_DELIMITER);
-  file_name_ = (char*) malloc (sizeof (char)*(fn_size+1));
-  strlcpy (file_name_, fn_copy, fn_size);
+  file_name_ = (char*) malloc (sizeof (char)*(fn_size + 1));
+  strlcpy (file_name_, fn_copy, fn_size + 1);
 
   /* Create a new thread to execute FILE_NAME. */
   tid = thread_create (file_name_, PRI_DEFAULT, start_process, fn_copy);
@@ -69,6 +69,8 @@ start_process (void *file_name_)
   struct intr_frame if_;
   bool success;
   struct thread *cur = thread_current ();
+
+  cur->p_type = TASK_USER;
 
   file_name = strtok_r (file_name_, ARGUMENT_DELIMITER, &arg);
 
@@ -163,6 +165,9 @@ process_exit (void)
   uint32_t *pd;
   struct list_elem *e;
   struct file *f;
+
+  if (cur->p_type == TASK_USER)
+    printf("%s: exit(%d)\n", cur->name, cur->exit_status);
 
   /* Close executing file */
   f = cur->executing_file;

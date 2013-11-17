@@ -207,6 +207,7 @@ thread_create (const char *name, int priority,
   tid = t->tid = allocate_tid ();
 #ifdef USERPROG
   t->pid = tid;
+  t->p_type = TASK_KERNEL;
 #endif
 
   /* Prepare thread for first run by initializing its stack.

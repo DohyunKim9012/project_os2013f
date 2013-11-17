@@ -24,6 +24,12 @@ enum process_status
     TASK_ZOMBIE,        /* Waiting for parent process. */ 
     TASK_DYING          /* About to be destroyed. */
   };
+
+enum process_category
+  {
+    TASK_KERNEL,
+    TASK_USER
+  };
 #endif
 
 /* Thread identifier type.
@@ -114,9 +120,10 @@ struct thread
 
     struct thread* parent;              /* Parent process */
     enum process_status p_status;       /* Process status */
+    enum process_category p_type;
     struct list child_list;             /* List of child processes */
-    struct list_elem child_elem;             /* List element for child process list */
-    int exit_status;                         /* Exit status of the process */
+    struct list_elem child_elem;        /* List element for child process list */
+    int exit_status;                    /* Exit status of the process */
     struct semaphore wait_sema;         /* Semaphore for chlid process waiting */
     struct semaphore exit_sema;         /* Semaphore for process exit */
 #endif
