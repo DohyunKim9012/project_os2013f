@@ -540,7 +540,7 @@ setup_stack (void **esp, const char* file_name, char *arg)
   /* For argument passing */
   int length;
   int argc = 0;
-  char* argv[ARGUMENT_MAXNUMBER];
+  char* argv[ARGUMENT_MAXNUMBER-1];
   char* token = NULL;
 
   int i;
@@ -558,7 +558,7 @@ setup_stack (void **esp, const char* file_name, char *arg)
 
         /* Save the tokenized arguments */
         for (token = strtok_r (NULL, ARGUMENT_DELIMITER, &arg); \
-            token != NULL && argc < ARGUMENT_MAXNUMBER;
+            token != NULL && argc < ARGUMENT_MAXNUMBER-1;
             token = strtok_r (NULL, ARGUMENT_DELIMITER, &arg))
         {
           argv[++argc] = token;
